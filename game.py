@@ -48,6 +48,7 @@ print("2 - идти вперёд")
 print("3 - отдохнуть")
 print("4 - заняться химией")
 print("5 - заняться биологией")
+print("6 - тренировка")
 print()
 # --- Выбор героя -----------------------------------
 choice = input()
@@ -68,6 +69,31 @@ match choice:
         reading = reading + 2
         strength = strength - 2
         print("Вы читаете учебник по биологии и решаете задачки на генетику")
+    case "6":
+        strikes = 9
+        total_damage = 0
+        crit_count = 0
+        print("Вы подходите к столу, на котором лежит тренировочный вариант ЕГЭ.")
+        print("Он лежит тут, с тех пор, как последний школьник не сдал ЕГЭ на проходной балл.")
+        print()
+        print(f"Наносите {strikes} ударов.")
+        for i in range(1, strikes + 1):
+            if i % 3 == 0:
+                hit_damage = crit_damage
+                crit_count += 1
+                print(f"Удар {i}: {hit_damage:.1f} урона — критический!")
+            else:
+                hit_damage = damage
+                print(f"Удар {i}: {hit_damage:.1f} урона")
+            total_damage += hit_damage
+        strength = strength - 5
+        print()
+        print(f"Итог: ударов: {strikes}, критических: {crit_count}")
+        print(f"Всего нанесено урона: {total_damage:.1f}")
+        average_damage = total_damage / strikes
+        print(f"Средний урон: {average_damage:.1f}")
+        print("Тренировка завершена. Вы потратили 5 единиц силы.")
+
     case _:
         print("Такого действия нет.")
 print("Состояние героя:")
