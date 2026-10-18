@@ -24,10 +24,27 @@ print()
 # --- Настройка героя -------------------------------
 print("Настройка героя.")
 print("Здоровье, сила, ловкость, начитанность — по одному числу в строке:")
-health = int(input())
-strength = int(input())
-agility = int(input())
-reading = int(input())
+while True:
+    try:
+        health = int(input())
+        strength = int(input())
+        agility = int(input())
+        reading = int(input())
+        if health <= 0:
+            raise ValueError(
+                f"Здоровье должно быть больше 0, а введено {health}"
+            )
+        if strength > 20 or strength < 0:
+            raise ValueError(
+                f"Сила должна быть от 0 до 20, а введено {strength}"
+            )
+        if agility < 0 or reading < 0:
+            raise ValueError(
+                "Ловкость и начитанность не могут быть отрицательными"
+            )
+        break
+    except ValueError as e:
+        print(f"Ошибка: {e}. Введите все четыре характеристики заново:")
 # --- Расчёт урона ----------------------------------
 base_attack = 10
 damage = base_attack + strength * 1.5
@@ -45,90 +62,109 @@ print(f"Критический урон: {crit_damage:.1f}")
 # --- Главный цикл игры ---------------------------
 running = True
 actions = 0
-while running:
-    print("Что делаешь?")
-    print("1 - осмотреться")
-    print("2 - идти вперёд")
-    print("3 - отдохнуть")
-    print("4 - заняться химией")
-    print("5 - заняться биологией")
-    print("6 - тренировка")
-    print("0 - выйти из подземелья")
-    print()
+menu_last = 6
+outcome = "прерывание"
+try:
+    while running:
+        print("Что делаешь?")
+        print("1 - осмотреться")
+        print("2 - идти вперёд")
+        print("3 - отдохнуть")
+        print("4 - заняться химией")
+        print("5 - заняться биологией")
+        print("6 - тренировка")
+        print("0 - выйти из подземелья")
+        print()
     # --- Выбор героя -----------------------------------
-    valid = ("0", "1", "2", "3", "4", "5", "6")
-    choice = input()
-    while choice not in valid:
-        print("Такого пункта нет. Введи номер пункта из меню.")
-        choice = input()
-    match choice:
-        case "1":
-            print("Вы осмотрелись. В комнате полно людей, много книг на полу.")
-        case "2":
-            cost = 2
-            if strength >= cost:
-                strength -= cost
-                print("Вы осторожно идёте вперёд. Пол скрипит под ногами.")
-            else:
-                health -= cost - strength
-                strength = 0
-                print("Сил больше нет — вы идёте на одном упорстве.")
-        case "3":
-            strength = min(strength + 1, 10)
-            print("Вы садитесь на стул, отдыхаете и восстанавливаете силы.")
-        case "4":
-            reading = reading + 2
-            strength = strength - 4
-            print("Вы читаете учебник по химии и проводите реакции")
-        case "5":
-            reading = reading + 2
-            strength = strength - 4
-            print("Вы читаете учебник по биологии и решаете задачки на генетику")
-        case "6":
-            strikes = 9
-            total_damage = 0
-            crit_count = 0
-            print("Вы подходите к столу, на котором лежит тренировочный вариант ЕГЭ.")
-            print("Он лежит тут, с тех пор, как последний школьник не сдал ЕГЭ на проходной балл.")
-            print()
-            print(f"Наносите {strikes} ударов.")
-            for i in range(1, strikes + 1):
-                if i % 3 == 0:
-                    hit_damage = crit_damage
-                    crit_count += 1
-                    print(f"Удар {i}: {hit_damage:.1f} урона — критический!")
+        while True:
+            choice = input()
+            try:
+                menu_number = int(choice)
+            except ValueError:
+                print("Ошибка ввода! Введи номер пункта из меню:")
+                continue
+            if 0 <= menu_number <= menu_last:
+                choice = str(menu_number)
+                break
+            print("Такого пункта нет. Введи номер пункта из меню:")
+        match choice:
+            case "1":
+                print("Вы осмотрелись. В комнате полно людей, много книг на полу.")
+            case "2":
+                cost = 2
+                if strength >= cost:
+                    strength -= cost
+                    print("Вы осторожно идёте вперёд. Пол скрипит под ногами.")
                 else:
-                    hit_damage = damage
-                    print(f"Удар {i}: {hit_damage:.1f} урона")
-                total_damage += hit_damage
-            strength = strength - 5
-            print()
-            print(f"Итог: ударов: {strikes}, критических: {crit_count}")
-            print(f"Всего нанесено урона: {total_damage:.1f}")
-            average_damage = total_damage / strikes
-            print(f"Средний урон: {average_damage:.1f}")
-            print("Тренировка завершена. Вы потратили 5 единиц силы.")
-        case "0":
-            print("Вы идете к двери. Лаборатория остается позади.")
+                    health -= cost - strength
+                    strength = 0
+                    print("Сил больше нет — вы идёте на одном упорстве.")
+            case "3":
+                strength = min(strength + 1, 10)
+                print("Вы садитесь на стул, отдыхаете и восстанавливаете силы.")
+            case "4":
+                reading = reading + 2
+                strength = strength - 4
+                print("Вы читаете учебник по химии и проводите реакции")
+            case "5":
+                reading = reading + 2
+                strength = strength - 4
+                print("Вы читаете учебник по биологии и решаете задачки на генетику")
+            case "6":
+                strikes = 9
+                total_damage = 0
+                crit_count = 0
+                print("Вы подходите к столу, на котором лежит тренировочный вариант ЕГЭ.")
+                print("Он лежит тут, с тех пор, как последний школьник не сдал ЕГЭ на проходной балл.")
+                print()
+                print(f"Наносите {strikes} ударов.")
+                for i in range(1, strikes + 1):
+                    if i % 3 == 0:
+                        hit_damage = crit_damage
+                        crit_count += 1
+                        print(f"Удар {i}: {hit_damage:.1f} урона — критический!")
+                    else:
+                        hit_damage = damage
+                        print(f"Удар {i}: {hit_damage:.1f} урона")
+                    total_damage += hit_damage
+                strength = strength - 5
+                print()
+                print(f"Итог: ударов: {strikes}, критических: {crit_count}")
+                print(f"Всего нанесено урона: {total_damage:.1f}")
+                average_damage = total_damage / strikes
+                print(f"Средний урон: {average_damage:.1f}")
+                print("Тренировка завершена. Вы потратили 5 единиц силы.")
+            case "0":
+                print("Вы идете к двери. Лаборатория остается позади.")
+                outcome = "выход"
+                running = False
+        print()
+        print(f"Здоровье: {health} Запас сил: {strength}")
+        if running:
+            actions += 1
+        if health <= 0:
+            outcome = "гибель"
+            print(f"{hero_name} падает без сил. Лаборатория забирает нового исследователя.")
             running = False
+except KeyboardInterrupt:
     print()
-    print(f"Здоровье: {health} Запас сил: {strength}")
-    if running:
-        actions += 1
-    if health <= 0:
-        print(f"{hero_name} падает без сил. Лаборатория забирает нового исследователя.")
-        running = False
-print("Состояние героя:")
-print(f"Здоровье: {health}")
-print(f"Сила: {strength}")
-print(f"Ловкость: {agility}")
-print(f"Начитанность: {reading}")
-print()
-# --- Прощание -----------------------------------
-frame = "=" * 26
-print(frame)
-if health <= 0:
-    print(f"Ты не дошёл, {hero_name}. Действий совершено: {actions}.")
-else:
-    print(f"Забег окончен, {hero_name}. Действий совершено: {actions}.")
-print(frame)
+    print("Игрок прервал сеанс.")
+
+finally:
+    print()
+    print("Состояние героя:")
+    print(f"Здоровье: {health}")
+    print(f"Сила: {strength}")
+    print(f"Ловкость: {agility}")
+    print(f"Начитанность: {reading}")
+    print()
+    print(frame)
+
+    if outcome == "гибель":
+        print(f"Вы не дошли до конца, {hero_name}. Лаборатория оказалась сильнее. Действий: {actions}.")
+    elif outcome == "выход":
+        print(f"Вы успешно покинули лабораторию, {hero_name}. Отличная работа! Действий: {actions}.")
+    else:
+        print(f"Вы прервали исследование, {hero_name}. Лаборатория подождёт до следующего раза. Действий: {actions}.")
+
+    print(frame)
