@@ -8,6 +8,7 @@
 # пункт только выводится в меню — обрабатывать
 # его будем на третьем занятии.
 # ================================================
+import random
 # --- Заголовок ------------------------------------
 title = "ШКОЛЬНАЯ ЛАБОРАТОРИЯ"
 frame = "=" * 26
@@ -49,6 +50,8 @@ while True:
 base_attack = 10
 damage = base_attack + strength * 1.5
 crit_damage = damage * 2
+stamina = health * 0.3
+max_stamina = stamina
 # --- Формуляр героя --------------------------------
 print("Характеристики героя:")
 print(f"Здоровье: {health}")
@@ -58,14 +61,17 @@ print(f"Начитанность: {reading}")
 print()
 print(f"Урон героя: {damage:.1f}")
 print(f"Критический урон: {crit_damage:.1f}")
-# --- Меню действий ---------------------------------
+print(f"Стамина: {stamina:.1f}")
 # --- Главный цикл игры ---------------------------
 running = True
 actions = 0
-menu_last = 6
+menu_last = 8
+enemies = ["химичка", "биологичка", "олипиадник", "сирота"]
+log = []
 outcome = "прерывание"
 try:
     while running:
+        # --- Меню действий ---------------------------------
         print("Что делаешь?")
         print("1 - осмотреться")
         print("2 - идти вперёд")
@@ -73,6 +79,8 @@ try:
         print("4 - заняться химией")
         print("5 - заняться биологией")
         print("6 - тренировка")
+        print("7 - зайти глубже")
+        print("8 - таблица лидеров")
         print("0 - выйти из подземелья")
         print()
     # --- Выбор героя -----------------------------------
@@ -92,23 +100,23 @@ try:
                 print("Вы осмотрелись. В комнате полно людей, много книг на полу.")
             case "2":
                 cost = 2
-                if strength >= cost:
-                    strength -= cost
+                if stamina >= cost:
+                    stamina -= cost
                     print("Вы осторожно идёте вперёд. Пол скрипит под ногами.")
                 else:
-                    health -= cost - strength
-                    strength = 0
+                    health -= cost - stamina
+                    stamina = 0
                     print("Сил больше нет — вы идёте на одном упорстве.")
             case "3":
-                strength = min(strength + 1, 10)
+                stamina = min(stamina + 1, 10)
                 print("Вы садитесь на стул, отдыхаете и восстанавливаете силы.")
             case "4":
                 reading = reading + 2
-                strength = strength - 4
+                stamina = stamina - 4
                 print("Вы читаете учебник по химии и проводите реакции")
             case "5":
                 reading = reading + 2
-                strength = strength - 4
+                stamina = stamina - 4
                 print("Вы читаете учебник по биологии и решаете задачки на генетику")
             case "6":
                 strikes = 9
@@ -127,19 +135,60 @@ try:
                         hit_damage = damage
                         print(f"Удар {i}: {hit_damage:.1f} урона")
                     total_damage += hit_damage
-                strength = strength - 5
+                stamina = stamina - 5
                 print()
                 print(f"Итог: ударов: {strikes}, критических: {crit_count}")
                 print(f"Всего нанесено урона: {total_damage:.1f}")
                 average_damage = total_damage / strikes
                 print(f"Средний урон: {average_damage:.1f}")
                 print("Тренировка завершена. Вы потратили 5 единиц силы.")
+            case "7":
+                if not enemies:
+                    print("Вы заходите глубже в лабораторию, но там пусто: врагов не осталось.")
+                else:
+                    enemy = random.choice(enemies)
+                    enemy_hp = 60
+                    round_n = 0
+                    print(f"Вы заходите глубже в лабораторию. Из темноты выходит {enemy}!")
+                    while enemy_hp > 0 and health > 0:
+                        round_n += 1
+                        if round_n % 3 == 0:
+                            hit_damage = crit_damage
+                            hit_end = " — критический!"
+                        else:
+                            hit_damage = damage
+                            hit_end = "."
+                        enemy_hp -= hit_damage
+                        enemy_damage = 0
+                        if enemy_hp <= 0:
+                            print(f"Раунд {round_n}: вы наносите {hit_damage:.1f} урона{hit_end} Враг падает.")
+                        else:
+                            enemy_damage = random.randint(2, 6)
+                            health -= enemy_damage
+                            print(f"Раунд {round_n}: вы наносите {hit_damage:.1f} урона{hit_end} "
+                                  f"Здоровье врага: {enemy_hp:.1f}. {enemy.capitalize()} бьёт в ответ на {enemy_damage}.")
+                        log.append([round_n, hit_damage, enemy_damage])
+                    if enemy_hp <= 0:
+                        enemies.remove(enemy)
+                        print(f"{enemy.capitalize()} повержен! Врагов в лаборатории осталось: {len(enemies)}.")
+                    print(f"Раундов в бою: {round_n}.")
+                    print(f"Последний раунд: урон героя {log[-1][1]:.1f}, урон врага {log[-1][2]}.")
+            case "8":
+                if not log:
+                    print("Вы ещё не дрались.")
+                else:
+                    top = sorted(log, key=lambda r: r[1], reverse=True)[:3]
+                    print("Таблица лидеров (урон героя):")
+                    for i in range(len(top)):
+                        print(f"{i + 1}. Раунд {top[i][0]}: {top[i][1]:.1f}")
+                    worst = max(log, key=lambda r: r[2])
+                    print(f"Самый сильный удар врага: {worst[2]} (раунд {worst[0]}).")
             case "0":
                 print("Вы идете к двери. Лаборатория остается позади.")
                 outcome = "выход"
                 running = False
         print()
-        print(f"Здоровье: {health} Запас сил: {strength}")
+        print(f"Здоровье: {health} Запас сил: {stamina} Врагов осталось: {len(enemies)}")
         if running:
             actions += 1
         if health <= 0:
@@ -157,14 +206,20 @@ finally:
     print(f"Сила: {strength}")
     print(f"Ловкость: {agility}")
     print(f"Начитанность: {reading}")
+    print(f"Стамина: {stamina}")
     print()
     print(frame)
 
     if outcome == "гибель":
-        print(f"Вы не дошли до конца, {hero_name}. Лаборатория оказалась сильнее. Действий: {actions}.")
+        print(f"Ты не дошёл, {hero_name}. Действий совершено: {actions}.")
     elif outcome == "выход":
-        print(f"Вы успешно покинули лабораторию, {hero_name}. Отличная работа! Действий: {actions}.")
+        print(f"Забег окончен, {hero_name}. Действий совершено: {actions}.")
     else:
-        print(f"Вы прервали исследование, {hero_name}. Лаборатория подождёт до следующего раза. Действий: {actions}.")
-
+        print(f"Ты покинул лабораторию, {hero_name}. Действий совершено: {actions}.")
+    total = sum(r[1] for r in log)
+    rounds = len(log)
+    if rounds > 0:
+        print(f"Общий урон: {total:.1f}, раундов: {rounds}, средний урон: {total / rounds:.1f}.")
+    else:
+        print("В этом забеге боёв не было.")
     print(frame)
