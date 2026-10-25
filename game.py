@@ -52,10 +52,12 @@ damage = base_attack + strength * 1.5
 crit_damage = damage * 2
 stamina = health * 0.3
 max_stamina = stamina
+max_health = health
 # --- Враги -----------------------------------
-enemies = ["химичка", "биологичка", "олипиадник", "сирота"]
+enemies = ["химичка", "биологичка", "олимпиадник", "сирота"]
 log = []
-
+gold_total = 0
+ability_bonus = 0
 # --- Функции ---------------------------------------
 def hero_hit(strike_n):
     """Урон героя в удар номер strike_n.
@@ -65,13 +67,9 @@ def hero_hit(strike_n):
     if strike_n % 3 == 0:
         return crit_damage, True
     return damage, False
-def fight(enemy, hero_health):
+def fight(enemy, hero_health, bonus = 0):
     """Бой с enemy до гибели одного из двоих.
-    Печатает строки раундов. Возвращает (rounds, won, hero_health):
-    таблицу раундов, признак победы героя и здоровье после боя.
-    Глобальные переменные не меняет: здоровье приходит параметром
-    и возвращается новым значением.
-    """
+    Возвращает раунды, победу, здоровье героя и полученное золото."""
     enemy_hp = 45.0
     rounds = []
     round_n = 0
@@ -79,6 +77,7 @@ def fight(enemy, hero_health):
     while enemy_hp > 0 and hero_health > 0:
         round_n += 1
         hit, crit = hero_hit(round_n)
+        hit += bonus
         enemy_hp -= hit
         line = f"Раунд {round_n}: вы наносите {hit:.1f} урона"
         if crit:
@@ -94,8 +93,18 @@ def fight(enemy, hero_health):
             line += f" Здоровье врага: {enemy_hp:.1f}. {enemy.capitalize()} бьёт в ответ на {blow}."
             rounds.append([round_n, hit, blow])
         print(line)
-    return rounds, enemy_hp <= 0, hero_health
+    won = enemy_hp <= 0
+    if won:
+        loot = 10 + 5 * round_n
+    else:
+        loot = 0
+    return rounds, won, hero_health, loot
 
+def buy(price, gold, quantity=1):
+    cost = price * quantity
+    if gold >= cost:
+        return gold - cost, True
+    return gold, False
 
 def print_leaderboard(log):
     """Печатает топ-3 раундов по урону героя и рекорд врага.
@@ -135,7 +144,7 @@ print(f"Стамина: {stamina:.1f}")
 # --- Главный цикл игры ---------------------------
 running = True
 actions = 0
-menu_last = 8
+menu_last = 9
 outcome = "прерывание"
 try:
     while running:
@@ -149,6 +158,7 @@ try:
         print("6 - тренировка")
         print("7 - зайти глубже")
         print("8 - таблица лидеров")
+        print("9 - магазин")
         print("0 - выйти из подземелья")
         print()
     # --- Выбор героя -----------------------------------
@@ -176,15 +186,15 @@ try:
                     stamina = 0
                     print("Сил больше нет — вы идёте на одном упорстве.")
             case "3":
-                stamina = min(stamina + 1, 10)
+                stamina = min(stamina + 1, max_stamina)
                 print("Вы садитесь на стул, отдыхаете и восстанавливаете силы.")
             case "4":
                 reading = reading + 2
-                stamina = stamina - 4
+                stamina = max(0, stamina - 4)
                 print("Вы читаете учебник по химии и проводите реакции")
             case "5":
                 reading = reading + 2
-                stamina = stamina - 4
+                stamina = max(0, stamina - 4)
                 print("Вы читаете учебник по биологии и решаете задачки на генетику")
             case "6":
                 strikes = 9
@@ -221,21 +231,73 @@ try:
                     print("Вы заходите глубже в лабораторию, но там пусто: врагов не осталось.")
                 else:
                     enemy = random.choice(enemies)
-                    rounds, won, health = fight(enemy, health)
+                    rounds, won, health, loot = fight(enemy, health, bonus=ability_bonus)
                     for r in rounds:
                         log.append(r)
                     if won:
-                        enemies.remove(enemy)
-                        print(f"{enemy.capitalize()} повержен! {len(enemies)} врагов осталось в лаборатории.")
+                        gold_total += loot
+                        enemies.remove(enemy)   
+                        print(
+                            f"{enemy.capitalize()} повержен! "
+                            f"{len(enemies)} врагов осталось в лаборатории.")
+                        print(f"Получено золота: {loot}")
                         print(f"Раундов в бою: {len(rounds)}.")
             case "8":
                 print_leaderboard(log)
+            case "9":
+                print("Магазин:")
+                print("1 - зелье (+10 здоровья): 10 золота")
+                print("2 - споры грибов (+6 запаса сил): 15 золота")
+                print("3 - жидкий уран (+4 к урону): 40 золота")
+                print("0 - назад")
+                print(f"Твоё золото: {gold_total}")
+
+                item = input("Выбери товар: ")
+
+                if item in ("1", "2", "3"):
+                    prices = (10, 15, 40)
+                    names = ("зелье", "споры грибов", "жидкий уран")
+
+                    price = prices[int(item) - 1]
+                    name = names[int(item) - 1]
+
+                    qty_line = input("Количество (Enter — 1): ")
+
+                    if qty_line == "":
+                        qty = 1
+                    elif qty_line.isdigit() and int(qty_line) > 0:
+                        qty = int(qty_line)
+                    else:
+                        qty = 0
+
+                    if qty == 0:
+                        print("Введите целое число больше нуля.")
+                    else:
+                        gold_left, ok = buy(price, gold_total, qty)
+
+                        if not ok:
+                            print("Недостаточно золота!")
+                        else:
+                            gold_total = gold_left
+
+                            if item == "1":
+                                health = min(health + 10 * qty, max_health)
+                            elif item == "2":
+                                stamina = min(stamina + 6 * qty, max_stamina)
+                            else:
+                                ability_bonus += 4 * qty
+
+                            print(f"Куплено: {name} × {qty}.")
+                            print(f"Осталось золота: {gold_total}")
+
+                elif item != "0":
+                    print("Такого товара нет.")
             case "0":
                 print("Вы идете к двери. Лаборатория остается позади.")
                 outcome = "выход"
                 running = False
         print()
-        print(f"Здоровье: {health} Запас сил: {stamina} Врагов осталось: {len(enemies)}")
+        print(f"Здоровье: {health} Запас сил: {stamina} Врагов осталось: {len(enemies)} Золото: {gold_total}")
         if running:
             actions += 1
         if health <= 0:
@@ -254,6 +316,8 @@ finally:
     print(f"Ловкость: {agility}")
     print(f"Начитанность: {reading}")
     print(f"Стамина: {stamina}")
+    print(f"Бонус к урону: {ability_bonus}")
+    print(f"Золото: {gold_total}")
     print()
     print(frame)
 
@@ -264,10 +328,4 @@ finally:
     else:
         print(f"Ты покинул лабораторию, {hero_name}. Действий совершено: {actions}.")
     print_run_summary(log)
-    print(frame)
-    rounds = len(log)
-    if rounds > 0:
-        print(f"Общий урон: {total:.1f}, раундов: {rounds}, средний урон: {total / rounds:.1f}.")
-    else:
-        print("В этом забеге боёв не было.")
     print(frame)
