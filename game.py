@@ -4,6 +4,13 @@
 # Дата: сентябрь 2026
 # ================================================
 import random
+import dungeon
+try:
+    from colorama import Fore, Style, init
+    init()
+    COLOR = True
+except ImportError:
+    COLOR = False
 # --- Заголовок ------------------------------------
 title = "ШКОЛЬНАЯ ЛАБОРАТОРИЯ"
 frame = "=" * 26
@@ -51,14 +58,7 @@ max_health = health
 # --- Враги -----------------------------------
 enemies = ["химичка", "биологичка", "олимпиадник", "сирота"]
 # --- Прейскурант, рюкзак, характеристики врагов ---
-prices = {"Зелье": 10, "Споры": 15, "Жидкий уран": 40}
 inventory = {}
-enemy_stats = {
-    "химичка": {"hp": 45, "damage": 6, "loot": 25},
-    "биологичка": {"hp": 30, "damage": 4, "loot": 15},
-    "олимпиадник": {"hp": 20, "damage": 3, "loot": 10},
-    "сирота": {"hp": 12, "damage": 2, "loot": 5},
-}
 log = []
 gold_total = 0
 ability_bonus = 0
@@ -116,53 +116,6 @@ MENU = ["Что делаешь? (номер или команда; help - спр
         "13 - разведка (scout)",
         "0 - выйти из подземелья (exit)"]
 # --- Функции ---------------------------------------
-def hero_hit(strike_n):
-    """Урон героя в удар номер strike_n.
-    Возвращает пару (hit, crit): урон и признак критического удара.
-    Читает глобальные правила damage и crit_damage, не меняет ничего.
-    """
-    if strike_n % 3 == 0:
-        return crit_damage, True
-    return damage, False
-def fight(enemy, hero_health, bonus = 0):
-    """Бой с enemy до гибели одного из двоих.
-    Карточка врага берётся из enemy_stats по имени: нужны ключи
-    hp, damage, loot.
-    Возвращает раунды, победу, здоровье героя и полученное золото."""
-    stats = enemy_stats[enemy]
-    enemy_hp = float(stats["hp"])
-    rounds = []
-    round_n = 0
-    print(f"Вы заходите глубже в лабораторию. Из темноты выходит {enemy}!")
-    while enemy_hp > 0 and hero_health > 0:
-        round_n += 1
-        hit, crit = hero_hit(round_n)
-        hit += bonus
-        enemy_hp -= hit
-        line = f"Раунд {round_n}: вы наносите {hit:.1f} урона"
-        if crit:
-            line += " — критический!"
-        else:
-            line += "."
-        if enemy_hp <= 0:
-            line += " Враг падает."
-            rounds.append([round_n, hit, 0])
-        else:
-            blow = stats["damage"]
-            hero_health -= blow
-            line += f" Здоровье врага: {enemy_hp:.1f}. {enemy.capitalize()} бьёт в ответ на {blow}."
-            rounds.append([round_n, hit, blow])
-        print(line)
-    won = enemy_hp <= 0
-    loot = stats["loot"] if won else 0
-    return rounds, won, hero_health, loot
-
-def buy(price, gold, quantity=1):
-    cost = price * quantity
-    if gold >= cost:
-        return gold - cost, True
-    return gold, False
-
 def print_leaderboard(log):
     """Печатает топ-3 раундов по урону героя и рекорд врага.
     Возвращает None: контракт функции — печать, а не данные.
@@ -176,7 +129,6 @@ def print_leaderboard(log):
         print(f"{i + 1}. Раунд {top[i][0]}: {top[i][1]:.1f}")
     worst = max(log, key=lambda r: r[2])
     print(f"Самый сильный удар врага: {worst[2]} (раунд {worst[0]}).")
-
 
 def print_run_summary(log):
     """Печатает итог забега: суммарный и средний урон героя.
@@ -305,22 +257,25 @@ try:
                     print("Вы заходите глубже в лабораторию, но там пусто: врагов не осталось.")
                 else:
                     enemy = random.choice(enemies)
-                    rounds, won, health, loot = fight(enemy, health, bonus=ability_bonus)
+                    rounds, won, health, loot = dungeon.fight(enemy, health, ability_bonus, damage, crit_damage)
                     for r in rounds:
                         log.append(r)
                     if won:
                         gold_total += loot
                         enemies.remove(enemy)   
-                        print(
-                            f"{enemy.capitalize()} повержен! "
-                            f"{len(enemies)} врагов осталось в лаборатории.")
+                        win_line = (f"{enemy.capitalize()} повержен! " 
+                                    f"{len(enemies)} врагов осталось в лаборатории.")
+                        if COLOR:
+                            print(Fore.YELLOW + Style.BRIGHT + win_line + Style.RESET_ALL)
+                        else:
+                            print(win_line)
                         print(f"Получено золота: {loot}")
                         print(f"Раундов в бою: {len(rounds)}.")
             case "leaders":
                 print_leaderboard(log)
             case "shop":
                 print("Магазин:")
-                for name, price in prices.items():
+                for name, price in dungeon.prices.items():
                     print(f"{name}: {price} золота")
                 print(f"Твоё золото: {gold_total}")
                 print("Чтобы купить, введите: buy <товар> [кол-во]")
@@ -334,14 +289,14 @@ try:
                 if item == "":
                     print("Что купить? Введите: buy <товар> [кол-во].")
                     continue
-                if item not in prices:
+                if item not in dungeon.prices:
                     print("Такого товара нет в магазине.")
                     continue
                 if qty == 0:
                     print("Количество должно быть больше нуля.")
                     continue
-                price = prices[item]
-                gold_total, ok = buy(price, gold_total, quantity=qty)
+                price = dungeon.prices[item]
+                gold_total, ok = dungeon.buy(price, gold_total, quantity=qty)
                 if ok:
                     if item == "Зелье":
                         inventory[item] = inventory.get(item, 0) + qty
@@ -396,7 +351,11 @@ try:
                 print(f"Команды: '{line.strip()}' нет. Введите 'help'.")
                 continue
         print()
-        print(f"Здоровье: {health} Запас сил: {stamina} Врагов осталось: {len(enemies)} Золото: {gold_total}")
+        state = f"Здоровье: {health} Запас сил: {stamina:.1f} Врагов осталось: {len(enemies)} Золото: {gold_total}"
+        if COLOR:
+            print(Fore.GREEN + state + Style.RESET_ALL)
+        else:
+            print(state)
         if running:
             actions += 1
         if health <= 0:
