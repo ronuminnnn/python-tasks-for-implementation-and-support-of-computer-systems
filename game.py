@@ -5,6 +5,8 @@
 # ================================================
 import random
 import dungeon
+import json
+import os
 try:
     from colorama import Fore, Style, init
     init()
@@ -18,36 +20,55 @@ print(frame)
 print(" " + title + " ")
 print(frame)
 print()
+# --- Сохранение -------------------------
+loaded = None
+if os.path.exists("save.json"):
+    print("Найдено сохранение. Продолжить забег? (да/нет)")
+    answer = input().strip().lower()
+    if answer in ("да", "yes", "y"):
+        try:
+            with open("save.json", encoding="utf-8") as f:
+                loaded = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            print("Сохранение повреждено. Начинаем новый забег.")
+            loaded = None
 # --- Знакомство с героем --------------------------
-print("Как зовут героя?")
-hero_name = input()
-print(f"Добро пожаловать, {hero_name}!")
-print("Ты заходишь в лабораторию. Здесь много людей и пахнет книгами.")
-print()
-# --- Настройка героя -------------------------------
-print("Настройка героя.")
-print("Здоровье, сила, ловкость, начитанность — по одному числу в строке:")
-while True:
-    try:
-        health = int(input())
-        strength = int(input())
-        agility = int(input())
-        reading = int(input())
-        if health <= 0:
-            raise ValueError(
-                f"Здоровье должно быть больше 0, а введено {health}"
-            )
-        if strength > 20 or strength < 0:
-            raise ValueError(
-                f"Сила должна быть от 0 до 20, а введено {strength}"
-            )
-        if agility < 0 or reading < 0:
-            raise ValueError(
-                "Ловкость и начитанность не могут быть отрицательными"
-            )
-        break
-    except ValueError as e:
-        print(f"Ошибка: {e}. Введите все четыре характеристики заново:")
+if loaded is None:
+    print("Как зовут героя?")
+    hero_name = input()
+    print(f"Добро пожаловать, {hero_name}!")
+    print("Ты заходишь в лабораторию. Здесь много людей и пахнет книгами.")
+    print()
+    # --- Настройка героя -------------------------------
+    print("Настройка героя.")
+    print("Здоровье, сила, ловкость, начитанность — по одному числу в строке:")
+    while True:
+        try:
+            health = int(input())
+            strength = int(input())
+            agility = int(input())
+            reading = int(input())
+            if health <= 0:
+                raise ValueError(
+                    f"Здоровье должно быть больше 0, а введено {health}"
+                )
+            if strength > 20 or strength < 0:
+                raise ValueError(
+                    f"Сила должна быть от 0 до 20, а введено {strength}"
+                )
+            if agility < 0 or reading < 0:
+                raise ValueError(
+                    "Ловкость и начитанность не могут быть отрицательными"
+                )
+            break
+        except ValueError as e:
+            print(f"Ошибка: {e}. Введите все четыре характеристики заново:")
+else:
+    hero_name = loaded["hero"]
+    health = loaded["health"]
+    strength = loaded["strength"]
+    agility = loaded["agility"]
+    reading = loaded["reading"]
 # --- Расчёт урона ----------------------------------
 base_attack = 10
 damage = base_attack + strength * 1.5
@@ -142,8 +163,11 @@ def print_run_summary(log):
         print("В этом забеге боёв не было.")
 
 def scout(r, c, seen):
-    """Рекурсивно считает комнаты, достижимые из клетки (r, c).
-    seen — общее множество уже посещённых этим обходом клеток."""
+    """Считает доступные комнаты."""
+    if r < 0 or r >= len(MAP):
+        return 0
+    if c < 0 or c >= len(MAP[r]):
+        return 0
     if (r, c) in seen or MAP[r][c] == "#":
         return 0
     seen.add((r, c))
@@ -151,6 +175,45 @@ def scout(r, c, seen):
     for dr, dc in DIRECTIONS.values():
         total += scout(r + dr, c + dc, seen)
     return total
+def write_save():
+    """Собирает состояние забега и пишет его в save.json.
+    Кортежи и множества превращает в списки: JSON их не знает.
+    """
+    save = {}
+    save["hero"] = hero_name
+    save["health"] = health
+    save["stamina"] = stamina
+    save["max_stamina"] = max_stamina
+    save["max_health"] = max_health
+    save["strength"] = strength
+    save["agility"] = agility
+    save["reading"] = reading
+    save["gold"] = gold_total
+    save["actions"] = actions
+    save["ability_bonus"] = ability_bonus
+    save["enemies"] = enemies
+    save["inventory"] = inventory
+    save["log"] = log
+    save["position"] = [hero_r, hero_c]
+    save["visited"] = [list(p) for p in visited]
+    save["loot"] = sorted(found_loot)
+    with open("save.json", "w", encoding="utf-8") as f:
+        json.dump(save, f, ensure_ascii=False, indent=2)
+# --- Восстановление забега ---------------
+# Формуляр героя ниже печатается и при продолжении: так игрок сразу видит характеристики.
+if loaded is not None:
+    stamina = loaded["stamina"]
+    max_stamina = loaded["max_stamina"]
+    max_health = loaded["max_health"]
+    gold_total = loaded["gold"]
+    ability_bonus = loaded["ability_bonus"]
+    enemies = loaded["enemies"]
+    inventory = loaded["inventory"]
+    log = loaded["log"]
+    hero_r, hero_c = loaded["position"]
+    visited = {tuple(p) for p in loaded["visited"]}
+    found_loot = set(loaded["loot"])
+    print(f"Забег продолжен: здоровье {health}, золото {gold_total}, врагов осталось {len(enemies)}.")
 # --- Формуляр героя --------------------------------
 print("Характеристики героя:")
 print(f"Здоровье: {health}")
@@ -163,7 +226,8 @@ print(f"Критический урон: {crit_damage:.1f}")
 print(f"Стамина: {stamina:.1f}")
 # --- Главный цикл игры ---------------------------
 running = True
-actions = 0
+actions = 0 if loaded is None else loaded["actions"]
+save_enabled = True
 outcome = "прерывание"
 try:
     while running:
@@ -340,8 +404,19 @@ try:
             case "scout":
                 seen = set()
                 print(f"Разведка: достижимых комнат — {scout(hero_r, hero_c, seen)}.")
+            case "newgame":
+                if os.path.exists("save.json"):
+                    os.remove("save.json")
+                    print("Сохранение удалено. Следующий забег начнётся с нуля.")
+                else:
+                    print("Нет сохранения, которое можно удалить.")
+                save_enabled = False
+                continue
             case "exit":
                 print("Вы идете к двери. Лаборатория остается позади.")
+                if save_enabled:
+                    write_save()
+                    print("Прогресс сохранён.")
                 outcome = "выход"
                 running = False
             case "help":
@@ -361,10 +436,14 @@ try:
         if health <= 0:
             outcome = "гибель"
             print(f"{hero_name} падает без сил. Лаборатория забирает нового исследователя.")
+            if os.path.exists("save.json"):
+                os.remove("save.json")
             running = False
 except KeyboardInterrupt:
     print()
     print("Игрок прервал сеанс.")
+    if save_enabled:
+        write_save()
 
 finally:
     print()
