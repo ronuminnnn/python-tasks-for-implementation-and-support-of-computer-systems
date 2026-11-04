@@ -2,11 +2,6 @@
     # ИГРА «ШКОЛЬНАЯ ЛАБОРАТОРИЯ»
 # Автор: Александра Фоминых
 # Дата: сентябрь 2026
-#
-# Пункт 4 — «заняться химией»: герой проходит в лабораторию
-# и начинает изучать химию. Пока
-# пункт только выводится в меню — обрабатывать
-# его будем на третьем занятии.
 # ================================================
 import random
 # --- Заголовок ------------------------------------
@@ -67,24 +62,47 @@ enemy_stats = {
 log = []
 gold_total = 0
 ability_bonus = 0
-# --- Команды (этап 12) -----------------------------
+# --- Карта подземелья --------------------
+MAP = [
+    ["#", "#", "#", "#", "#"],
+    ["#", ".", ".", "#", "#"],
+    ["#", ".", "#", ".", "#"],
+    ["#", ".", ".", ".", "#"],
+    ["#", "#", "S", ".", "#"],
+]
+hero_r, hero_c = 4, 2
+visited = {(4, 2)}
+
+LOOT = {(1, 1): "старая колба", (2, 3): "пыльная пробирка",
+        (3, 3): "микроскоп охранника"}
+found_loot = set()
+
+DIRECTIONS = {"north": (-1, 0), "south": (1, 0),
+              "west": (0, -1), "east": (0, 1)}
+DIR_ALIASES = {"север": "north", "юг": "south",
+               "запад": "west", "восток": "east"}
+DIR_NAMES = {"north": "на север", "south": "на юг",
+             "west": "на запад", "east": "на восток"}
+# --- Команды -----------------------------
 num_to_verb = {"1": "look", "2": "go", "3": "rest", "4": "chem",
                "5": "bio", "6": "train", "7": "descend", "8": "leaders",
-               "9": "shop", "10": "backpack", "11": "drink", "0": "exit"}
+               "9": "shop", "10": "backpack", "11": "drink",
+               "12": "map", "13": "scout", "0": "exit"}
 
 aliases = {"осмотреться": "look", "идти": "go", "отдых": "rest",
            "химия": "chem", "биология": "bio", "тренировка": "train",
            "глубже": "descend", "лидеры": "leaders", "магазин": "shop",
            "рюкзак": "backpack", "выпить": "drink", "купить": "buy",
-           "помощь": "help", "выход": "exit"}
+           "помощь": "help", "выход": "exit",
+           "карта": "map", "разведка": "scout"}
 
-commands = ["look", "go", "rest", "chem", "bio", "train", "descend",
-            "leaders", "shop", "backpack", "drink зелье",
-            "buy <товар> [кол-во]", "exit"]
+commands = ["look", "go [north/south/west/east]", "rest", "chem", "bio",
+            "train", "descend", "leaders", "shop", "backpack",
+            "drink зелье", "buy <товар> [кол-во]", "map", "scout", "exit"]
 
 MENU = ["Что делаешь? (номер или команда; help - справка)",
         "1 - осмотреться (look)",
-        "2 - идти вперёд (go)",
+        "2 - идти вперёд / по карте (go [north/south/west/east])",
         "3 - отдохнуть (rest)",
         "4 - заняться химией (chem)",
         "5 - заняться биологией (bio)",
@@ -94,6 +112,8 @@ MENU = ["Что делаешь? (номер или команда; help - спр
         "9 - магазин (shop)",
         "10 - рюкзак (backpack)",
         "11 - выпить зелье (drink)",
+        "12 - карта (map)",
+        "13 - разведка (scout)",
         "0 - выйти из подземелья (exit)"]
 # --- Функции ---------------------------------------
 def hero_hit(strike_n):
@@ -168,6 +188,17 @@ def print_run_summary(log):
         print(f"Общий урон: {total:.1f}, раундов: {rounds}, средний урон: {total / rounds:.1f}.")
     else:
         print("В этом забеге боёв не было.")
+
+def scout(r, c, seen):
+    """Рекурсивно считает комнаты, достижимые из клетки (r, c).
+    seen — общее множество уже посещённых этим обходом клеток."""
+    if (r, c) in seen or MAP[r][c] == "#":
+        return 0
+    seen.add((r, c))
+    total = 1
+    for dr, dc in DIRECTIONS.values():
+        total += scout(r + dr, c + dc, seen)
+    return total
 # --- Формуляр героя --------------------------------
 print("Характеристики героя:")
 print(f"Здоровье: {health}")
@@ -204,14 +235,30 @@ try:
             case "look":
                 print("Вы осмотрелись. В комнате полно людей, много книг на полу.")
             case "go":
-                cost = 2
-                if stamina >= cost:
-                    stamina -= cost
-                    print("Вы осторожно идёте вперёд. Пол скрипит под ногами.")
+                direction = DIR_ALIASES.get(words[1], words[1]) if len(words) > 1 else ""
+                if direction in DIRECTIONS:
+                    dr, dc = DIRECTIONS[direction]
+                    nr, nc = hero_r + dr, hero_c + dc
+                    if 0 <= nr < len(MAP) and 0 <= nc < len(MAP[nr]) and MAP[nr][nc] != "#":
+                        hero_r, hero_c = nr, nc
+                        visited.add((hero_r, hero_c))
+                        if (hero_r, hero_c) in LOOT:
+                            loot_item = LOOT[(hero_r, hero_c)]
+                            if loot_item not in found_loot:
+                                found_loot.add(loot_item)
+                                print(f"Вы нашли: {loot_item}! Уникального лута: {len(found_loot)}.")
+                        print(f"Вы идёте {DIR_NAMES[direction]}. Комната ({hero_r}, {hero_c}).")
+                    else:
+                        print(f"Нельзя идти {DIR_NAMES[direction]}: стена или край карты.")
                 else:
-                    health -= cost - stamina
-                    stamina = 0
-                    print("Сил больше нет — вы идёте на одном упорстве.")
+                    cost = 2
+                    if stamina >= cost:
+                        stamina -= cost
+                        print("Вы осторожно идёте вперёд. Пол скрипит под ногами.")
+                    else:
+                        health -= cost - stamina
+                        stamina = 0
+                        print("Сил больше нет — вы идёте на одном упорстве.")
             case "rest":
                 stamina = min(stamina + 1, max_stamina)
                 print("Вы садитесь на стул, отдыхаете и восстанавливаете силы.")
@@ -327,13 +374,24 @@ try:
                 if inventory["Зелье"] == 0:
                     del inventory["Зелье"]
                 print(f"Вы пьёте зелье. Здоровье: {health}. Зелий осталось: {inventory.get('Зелье', 0)}.")
+            case "map":
+                print("Карта:")
+                for i in range(len(MAP)):
+                    cells = []
+                    for j in range(len(MAP[i])):
+                        cell = "@" if (i, j) == (hero_r, hero_c) else MAP[i][j]
+                        cells.append(cell)
+                    print(" ".join(cells))
+            case "scout":
+                seen = set()
+                print(f"Разведка: достижимых комнат — {scout(hero_r, hero_c, seen)}.")
             case "exit":
                 print("Вы идете к двери. Лаборатория остается позади.")
                 outcome = "выход"
                 running = False
             case "help":
                 print("Команды: " + ", ".join(commands) + ".")
-                print("Номера 0-11 работают как раньше.")
+                print("Номера 0-13 работают как раньше.")
             case _:
                 print(f"Команды: '{line.strip()}' нет. Введите 'help'.")
                 continue
